@@ -1,43 +1,39 @@
+/*
+ * Entry Point of Application
+ * ************************** */ 
+
 console.log("démarrage de l'application");
 
 require("dotenv").config();
 const app = require("express")(),
-  mysql = require("mysql"),
   session = require("express-session"),
   MySQLStore = require("express-mysql-session")(session),
   { engine } = require("express-handlebars"),
   bodyParser = require("body-parser"),
+  config = require("./config/config"),
+  db = require("./config/db"),
   port = process.env.PORT || 3000;
 
-const config = {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-};
-
+// Connection to Mysql Server
+db.connect();
 const sessionStore = new MySQLStore(config);
 
-db = mysql.createConnection(config);
-const util = require("util");
-db.query = util.promisify(db.query).bind(db);
+// Manage your Cookie
+app.use(
+  session({
+    key: "name-cookie",
+    secret: "secret-name-cookie",
+    store: sessionStore,
+    resave: true,
+    saveUninitialized: true,
+  })
+);
 
-db.connect();
-
-// global.query = db.query
-
-app.use(session({
-	key: 'name-cookie',
-	secret: 'secret-name-cookie',
-	store: sessionStore,
-	resave: true,
-	saveUninitialized: true
-}));
-
+// Manage your request body from form
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
+// Engine of templating html (handlebars)
 app.engine(
   "hbs",
   engine({
@@ -47,11 +43,12 @@ app.engine(
 );
 app.set("view engine", "hbs");
 
-app.use('*', (req, res, next) => {
-    res.locals.user = req.session.user
-    console.log('session', req.session)
-    next()
-})
+// Check route (middleware)
+app.use("*", (req, res, next) => {
+  res.locals.user = req.session.user;
+  console.log("session", req.session);
+  next();
+});
 
 const router = require("./router");
 app.use(router);
